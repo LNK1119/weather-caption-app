@@ -102,6 +102,7 @@ def parse_weather_response(items):
     for item in items:
         category = item.get("category")
         fcstValue = item.get("fcstValue")
+        print(f"category={category}, fcstValue={fcstValue}")  # 디버깅용 출력
         
         if category == "PTY":
             if fcstValue == "1":  # 비
@@ -120,6 +121,7 @@ def parse_weather_response(items):
                 return "cloudy"
     
     return "sunny"  # 기본값
+
       
 
 @app.get("/caption")
