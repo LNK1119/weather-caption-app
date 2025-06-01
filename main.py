@@ -34,11 +34,14 @@ except errors.ServerSelectionTimeoutError as e:
 app = FastAPI()
 
 weather_captions = {
-    "sunny": "햇살 가득한 날, 나들이 가기 딱 좋은 날씨예요!",
-    "rainy": "비 오는 날, 창가에 앉아 차 한 잔의 여유를 즐겨보세요.",
-    "cloudy": "구름이 많은 하루예요. 산책에는 좋을지도 몰라요!",
-    "snowy": "하얀 눈이 내려요. 포근한 옷차림을 추천해요!"
+    "sunny": "맑고 화창한 하루예요. 어디론가 훌쩍 떠나보는 건 어때요?",
+    "partly_cloudy": "구름이 조금 있지만, 바깥 활동엔 무리 없을 것 같아요!",
+    "cloudy": "하늘이 잔뜩 흐렸네요. 조용한 실내 활동이 잘 어울리는 날이에요.",
+    "rainy": "비가 오고 있어요. 우산 챙기고 발걸음 조심하세요!",
+    "shower": "갑작스런 소나기가 내릴 수 있어요. 짧은 외출도 우산은 필수!",
+    "snowy": "눈이 내려요. 포근한 옷차림과 따뜻한 음료를 곁들여보세요!"
 }
+
 
 class CaptionItem(BaseModel):
     weather: str
@@ -95,25 +98,29 @@ def convert_to_grid(lat, lon):
     y = int(ro - ra * math.cos(theta) + YO + 0.5)
     return x, y
 
-# 초단기예보로부터 날씨 정보 파싱
 def parse_weather_response(items):
-    weather = "sunny"
     for item in items:
         category = item.get("category")
         fcstValue = item.get("fcstValue")
-        if category == "PTY":  # 강수형태 (0: 없음, 1: 비, 2: 비/눈, 3: 눈, 4: 소나기)
-            if fcstValue in ["1", "4"]:
+        
+        if category == "PTY":
+            if fcstValue == "1":  # 비
                 return "rainy"
-            elif fcstValue in ["2", "3"]:
+            elif fcstValue in ["2", "3"]:  # 비/눈, 눈
                 return "snowy"
-        elif category == "SKY":  # 하늘 상태 (1: 맑음, 3: 구름많음, 4: 흐림)
+            elif fcstValue == "4":  # 소나기
+                return "shower"
+        
+        elif category == "SKY":
             if fcstValue == "1":
-                weather = "sunny"
+                return "sunny"
             elif fcstValue == "3":
-                weather = "cloudy"
+                return "partly_cloudy"
             elif fcstValue == "4":
-                weather = "cloudy"
-    return weather        
+                return "cloudy"
+    
+    return "sunny"  # 기본값
+      
 
 @app.get("/caption")
 def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny, rainy, etc.)")):
