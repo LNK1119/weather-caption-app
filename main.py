@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Body
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 import datetime
 from typing import List
@@ -45,8 +46,8 @@ def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny
     caption = weather_captions.get(weather.lower(), "날씨에 맞는 캡션을 찾을 수 없어요.")
     item = CaptionItem(weather=weather, caption=caption, created_at=datetime.datetime.now())
     caption_history.append(item)
-    collection.insert_one(item.dict())  # ⬅ MongoDB 저장
-    return JSONResponse(content=item.dict())
+    collection.insert_one(item.dict())
+    return JSONResponse(content=jsonable_encoder(item))
 
 # 2. 수동 저장
 class CaptionSaveRequest(BaseModel):
@@ -57,13 +58,12 @@ class CaptionSaveRequest(BaseModel):
 def save_caption(data: CaptionSaveRequest = Body(...)):
     item = CaptionItem(weather=data.weather, caption=data.caption, created_at=datetime.datetime.now())
     caption_history.append(item)
-    collection.insert_one(item.dict())  # ⬅ MongoDB 저장
-    return {"message": "캡션 저장 완료", "item": item}
+    collection.insert_one(item.dict())
+    return {"message": "캡션 저장 완료", "item": jsonable_encoder(item)}
 
 # 3. 히스토리 조회 (옵션: DB에서 조회 가능)
 @app.get("/caption/history", response_model=List[CaptionItem])
 def get_caption_history():
-    # ⬇ DB에서 직접 조회할 수도 있음
     docs = collection.find().sort("created_at", -1).limit(100)
     return [
         CaptionItem(
@@ -86,9 +86,9 @@ def caption_from_image(file: UploadFile = File(...)):
         caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
         item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now())
         caption_history.append(item)
-        collection.insert_one(item.dict())  # ⬅ MongoDB 저장
+        collection.insert_one(item.dict())
 
-        return JSONResponse(content=item.dict())
+        return JSONResponse(content=jsonable_encoder(item))
 
     except Exception:
         raise HTTPException(status_code=400, detail="유효한 이미지 파일을 업로드해주세요.")
@@ -100,5 +100,5 @@ def caption_from_location(lat: float = Query(...), lon: float = Query(...)):
     caption = weather_captions[mock_weather]
     item = CaptionItem(weather=mock_weather, caption=caption, created_at=datetime.datetime.now())
     caption_history.append(item)
-    collection.insert_one(item.dict())  # ⬅ MongoDB 저장
-    return JSONResponse(content=item.dict())
+    collection.insert_one(item.dict())
+    return JSONResponse(content=jsonable_encoder(item))
