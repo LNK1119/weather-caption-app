@@ -24,9 +24,12 @@ jobs:
           docker build -t lwknk/weather-caption-app:latest .
           docker push lwknk/weather-caption-app:latest
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
+      - name: Azure Login
+        uses: azure/login@v1
         with:
-          app-name: weather-caption-123
-          publish-profile: ${{ secrets.AZURE_CREDENTIALS }}
-          images: 'lwknk/weather-caption-app:latest'
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App with Azure CLI
+        run: |
+          az webapp config container set --name weather-caption-123 --resource-group cloud --docker-custom-image-name lwknk/weather-caption-app:latest
+          az webapp restart --name weather-caption-123 --resource-group cloud
