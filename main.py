@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from pymongo import MongoClient, errors
 from dateutil import parser
 import httpx
+import xmltodict
 
 # .env 파일 로드
 load_dotenv()
