@@ -208,10 +208,23 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
                     "base_time": base_time,
                     "nx": nx,
                     "ny": ny
-                }
+                },
+                timeout=10.0
             )
+        response.raise_for_status()
+
         data = xmltodict.parse(response.text)
-        items = data["response"]["body"]["items"]["item"]
+
+        # API 호출 결과에서 에러 메시지 확인
+        cmm_msg = data.get("response", {}).get("cmmMsgHeader", {})
+        if cmm_msg.get("returnAuthMsg") == "SERVICE_KEY_IS_NOT_REGISTERED_ERROR":
+            raise HTTPException(status_code=401, detail="API 키가 등록되어 있지 않습니다. 키를 확인해주세요.")
+        elif cmm_msg.get("errMsg") and cmm_msg.get("errMsg") != "NORMAL SERVICE.":
+            raise HTTPException(status_code=500, detail=f"기상청 API 오류: {cmm_msg.get('errMsg')}")
+
+        items = data.get("response", {}).get("body", {}).get("items", {}).get("item")
+        if items is None:
+            raise HTTPException(status_code=404, detail="기상 정보가 존재하지 않습니다.")
         if isinstance(items, dict):
             items = [items]
 
@@ -221,6 +234,15 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
         insert_caption(item)
 
         return JSONResponse(content=jsonable_encoder(item))
+
+    except httpx.HTTPStatusError as e:
+        print(f"HTTP 오류: {e}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"기상청 API HTTP 오류: {e}")
+    except httpx.RequestError as e:
+        print(f"요청 오류: {e}")
+        raise HTTPException(status_code=503, detail="기상청 API 서버에 연결할 수 없습니다.")
+    except HTTPException as e:
+        raise e
     except Exception as e:
         print(f"위치 기반 캡션 생성 실패: {e}")
         raise HTTPException(status_code=500, detail=f"위치 기반 캡션 생성 실패: {e}")
