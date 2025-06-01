@@ -214,29 +214,26 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
         response.raise_for_status()
 
         data = xmltodict.parse(response.text)
-        
-        print("Request Params:", {
-            "serviceKey": WEATHER_API_KEY,
-            "dataType": "XML",
-            "numOfRows": 1000,
-            "pageNo": 1,
-            "base_date": base_date,
-            "base_time": base_time,
-            "nx": nx,
-            "ny": ny
-        })
-        print("Response Text:", response.text)
 
-        # API 호출 결과에서 에러 메시지 확인
-        cmm_msg = data.get("response", {}).get("cmmMsgHeader", {})
-        if cmm_msg.get("returnAuthMsg") == "SERVICE_KEY_IS_NOT_REGISTERED_ERROR":
-            raise HTTPException(status_code=401, detail="API 키가 등록되어 있지 않습니다. 키를 확인해주세요.")
-        elif cmm_msg.get("errMsg") and cmm_msg.get("errMsg") != "NORMAL SERVICE.":
-            raise HTTPException(status_code=500, detail=f"기상청 API 오류: {cmm_msg.get('errMsg')}")
+        response_data = data.get("response")
+        if not response_data:
+            raise HTTPException(status_code=500, detail="기상청 API 응답이 없습니다.")
 
-        items = data.get("response", {}).get("body", {}).get("items", {}).get("item")
+        header = response_data.get("header")
+        if not header:
+            raise HTTPException(status_code=500, detail="기상청 API 응답에 header가 없습니다.")
+
+        if header.get("resultCode") != "00":
+            raise HTTPException(status_code=500, detail=f"기상청 API 오류: {header.get('resultMsg', '알 수 없는 오류')}")
+
+        body = response_data.get("body")
+        if not body:
+            raise HTTPException(status_code=500, detail="기상청 API 응답에 body가 없습니다.")
+
+        items = body.get("items", {}).get("item")
         if items is None:
             raise HTTPException(status_code=404, detail="기상 정보가 존재하지 않습니다.")
+
         if isinstance(items, dict):
             items = [items]
 
@@ -244,7 +241,6 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
         caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
         item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now())
         insert_caption(item)
-        
 
         return JSONResponse(content=jsonable_encoder(item))
 
