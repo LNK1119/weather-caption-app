@@ -16,17 +16,17 @@ jobs:
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: lwknk
+          password: dckr_pat_QlUUFryZFfV4xrehz832dxmB3f0
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/weather-caption-app:latest .
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/weather-caption-app:latest
+          docker build -t lwknk/weather-caption-app:latest .
+          docker push lwknk/weather-caption-app:latest
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: weather-caption-123
           publish-profile: ${{ secrets.AZURE_CREDENTIALS }}
-          images: '${{ secrets.DOCKERHUB_USERNAME }}/weather-caption-app:latest'
+          images: 'lwknk/weather-caption-app:latest'
