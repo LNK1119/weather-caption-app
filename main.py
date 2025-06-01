@@ -214,6 +214,18 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
         response.raise_for_status()
 
         data = xmltodict.parse(response.text)
+        
+        print("Request Params:", {
+            "serviceKey": WEATHER_API_KEY,
+            "dataType": "XML",
+            "numOfRows": 1000,
+            "pageNo": 1,
+            "base_date": base_date,
+            "base_time": base_time,
+            "nx": nx,
+            "ny": ny
+        })
+        print("Response Text:", response.text)
 
         # API 호출 결과에서 에러 메시지 확인
         cmm_msg = data.get("response", {}).get("cmmMsgHeader", {})
@@ -232,6 +244,7 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
         caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
         item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now())
         insert_caption(item)
+        
 
         return JSONResponse(content=jsonable_encoder(item))
 
