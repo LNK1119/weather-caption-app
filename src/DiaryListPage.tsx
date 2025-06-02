@@ -1,17 +1,19 @@
 // DiaryListPage.tsx
 import React, { useEffect, useState } from 'react';
-import { fetchDiaryList, deleteDiary, saveDiary } from './api';
+import { fetchDiaryList, deleteDiary } from './api';
 import { DiaryItem } from './types';
 
-export function DiaryListPage({ onSelectDiary, onBack }: { onSelectDiary: (id: string) => void; onBack: () => void }) {
+export function DiaryListPage({
+  onSelectDiary,
+  onBack,
+  onGoWrite,
+}: {
+  onSelectDiary: (id: string) => void;
+  onBack: () => void;
+  onGoWrite: () => void;
+}) {
   const [diaries, setDiaries] = useState<DiaryItem[]>([]);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  // 위치는 작성 시점에 다시 받아오거나, 고정 좌표로 예시
-  const lat = 37.5665;
-  const lon = 126.9780;
 
   useEffect(() => {
     loadDiaries();
@@ -21,6 +23,7 @@ export function DiaryListPage({ onSelectDiary, onBack }: { onSelectDiary: (id: s
     try {
       const list = await fetchDiaryList();
       setDiaries(list);
+      setError(null);
     } catch {
       setError("일기 목록을 불러오는데 실패했습니다.");
     }
@@ -35,41 +38,96 @@ export function DiaryListPage({ onSelectDiary, onBack }: { onSelectDiary: (id: s
     }
   }
 
-  async function handleSave() {
-    if (!title || !content) {
-      setError("제목과 내용을 모두 입력하세요.");
-      return;
-    }
-    try {
-      await saveDiary({ title, content, lat, lon });
-      setTitle("");
-      setContent("");
-      loadDiaries();
-    } catch {
-      setError("일기 저장에 실패했습니다.");
-    }
-  }
-
   return (
-    <div>
-      <button onClick={onBack}>메인으로</button>
-      <h2>일기 목록</h2>
-      {error && <p style={{color:"red"}}>{error}</p>}
-      <ul>
+    <div style={{ maxWidth: 700, margin: "30px auto", padding: 20, fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif" }}>
+      <button
+        onClick={onBack}
+        style={{
+          backgroundColor: "#00aaff",
+          color: "white",
+          border: "none",
+          padding: "10px 15px",
+          borderRadius: 8,
+          cursor: "pointer",
+          marginBottom: 20,
+          fontWeight: "bold",
+          transition: "background-color 0.3s"
+        }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#008ecc")}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#00aaff")}
+      >
+        메인으로
+      </button>
+
+      <h2 style={{ color: "#00aaff", marginBottom: 15 }}>일기 목록</h2>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+
+      <ul style={{ listStyle: "none", padding: 0 }}>
         {diaries.map(d => (
-          <li key={d.id}>
-            <span onClick={() => onSelectDiary(d.id)} style={{ cursor: "pointer" }}>
-              {d.title} - {new Date(d.created_at).toLocaleString()} - {d.weather}
-            </span>
-            <button onClick={() => handleDelete(d.id)} style={{ marginLeft: "10px" }}>삭제</button>
+          <li
+            key={d.id}
+            style={{
+              padding: "12px 15px",
+              marginBottom: 10,
+              backgroundColor: "#e8f4fc",
+              borderRadius: 10,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              cursor: "pointer"
+            }}
+            onClick={() => onSelectDiary(d.id)}
+          >
+            <div>
+              <strong>{d.title}</strong> <br />
+              <small style={{ color: "#555" }}>
+                {new Date(d.created_at).toLocaleString()} - {d.weather}
+              </small>
+            </div>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                handleDelete(d.id);
+              }}
+              style={{
+                backgroundColor: "#ff5555",
+                border: "none",
+                color: "white",
+                borderRadius: 8,
+                padding: "6px 12px",
+                cursor: "pointer",
+                fontWeight: "bold",
+                transition: "background-color 0.3s"
+              }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#cc4444")}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#ff5555")}
+            >
+              삭제
+            </button>
           </li>
         ))}
       </ul>
 
-      <h3>새 일기 작성</h3>
-      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="제목" /><br />
-      <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="내용" /><br />
-      <button onClick={handleSave}>저장</button>
+      <button
+        onClick={onGoWrite}
+        style={{
+          marginTop: 30,
+          width: "100%",
+          padding: "12px 0",
+          fontSize: 18,
+          fontWeight: "bold",
+          color: "white",
+          backgroundColor: "#00aaff",
+          border: "none",
+          borderRadius: 8,
+          cursor: "pointer",
+          transition: "background-color 0.3s"
+        }}
+        onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#008ecc")}
+        onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#00aaff")}
+      >
+        새 일기 작성
+      </button>
     </div>
   );
 }
