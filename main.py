@@ -45,15 +45,17 @@ weather_captions = {
 }
 
 
-class DiaryItem(BaseModel):
+class CaptionItem(BaseModel):
+    weather: str
+    caption: str
+    created_at: datetime.datetime
+
+class DiarySaveRequest(BaseModel):
     title: str
     content: str
     weather: str
-    created_at: datetime.datetime
 
-
-
-def insert_caption(item: DiaryItem):
+def insert_diary(item: DiaryItem):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     item_dict = item.dict()
@@ -349,9 +351,12 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
 
                     predicted_weather = parse_weather_response(items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
+                    item = CaptionItem(
+                        weather=predicted_weather,
+                        caption=caption,
+                        created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+                    )
                     description = parse_weather_details(items)
-                    
-
                     return JSONResponse(content=jsonable_encoder({
                         "caption_item": item,
                         "description": description
