@@ -1,26 +1,28 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+// App.tsx (최상위)
+import React, { useState } from 'react';
+import { MainPage } from './MainPage';
+import { DiaryListPage } from './DiaryListPage';
+import { DiaryDetailPage } from './DiaryDetailPage';
 
-function App() {
+export function App() {
+  const [page, setPage] = useState<"main" | "list" | "detail">("main");
+  const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div style={{ maxWidth: 600, margin: "auto", padding: 20 }}>
+      {page === "main" && <MainPage onGoDiaryList={() => setPage("list")} />}
+      {page === "list" && (
+        <DiaryListPage
+          onSelectDiary={id => {
+            setSelectedDiaryId(id);
+            setPage("detail");
+          }}
+          onBack={() => setPage("main")}
+        />
+      )}
+      {page === "detail" && selectedDiaryId && (
+        <DiaryDetailPage id={selectedDiaryId} onBack={() => setPage("list")} />
+      )}
     </div>
   );
 }
-
-export default App;
