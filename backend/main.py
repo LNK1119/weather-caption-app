@@ -133,6 +133,20 @@ def convert_to_grid(lat, lon):
     x = int(ra * math.sin(theta) + XO + 0.5)
     y = int(ro - ra * math.cos(theta) + YO + 0.5)
     return x, y
+    
+def get_base_time():
+    """
+    현재 시간 기준 가장 가까운 기상청 base_time을 반환
+    """
+    now = datetime.datetime.now(timezone("Asia/Seoul"))
+    hour = now.hour
+
+    # base_time 목록
+    base_times = [2, 5, 8, 11, 14, 17, 20, 23]
+    closest = max([bt for bt in base_times if bt <= hour], default=23)
+
+    return f"{closest:02}00"
+
 
 # 기상청 API에서 받아온 데이터로 날씨 상태를 파싱하는 함수
 def parse_weather_response(items):
@@ -231,7 +245,7 @@ async def get_weather_caption(lat: float = Query(..., description="위도"),
         "numOfRows": "100",
         "dataType": "JSON",
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
-        "base_time": "0500",
+        "base_time": get_base_time(),
         "nx": str(nx),
         "ny": str(ny),
     }
@@ -281,7 +295,7 @@ async def save_diary(data: DiarySaveRequest):
         "numOfRows": "100",
         "dataType": "JSON",
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
-        "base_time": "0500",
+        "base_time": get_base_time(),
         "nx": str(nx),
         "ny": str(ny),
     }
