@@ -135,7 +135,7 @@ def parse_weather_details(items):
         category = item.get("category")
         value = item.get("fcstValue")
 
-        if category == "T1H":  # 기온
+        if category == "TMP":  # 기온
             try:
                 temps.append(float(value))
             except (ValueError, TypeError):
