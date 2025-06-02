@@ -50,6 +50,3 @@ GitHub Actions → DockerHub → Azure Web App이 pull해서 자동 배포
 
 ####  프론트엔드
 npm run build → 정적 파일 배포 (Azure에 직접 올림)
-
-https://frontend-cloud-bgf3bpevcufxckdt.koreacentral-01.azurewebsites.net/   
-https://weather-caption-123-e9eegwdzcvfddta8.koreasouth-01.azurewebsites.net/
