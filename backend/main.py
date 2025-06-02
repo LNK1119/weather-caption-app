@@ -223,7 +223,10 @@ def parse_weather_details(items):
 @app.get("/weather/caption", summary="위치 기반 날씨 캡션 생성")
 async def get_weather_caption(lat: float = Query(..., description="위도"),
                               lon: float = Query(..., description="경도")):
-    nx, ny = convert_to_grid(lat, lon)
+    try:
+        nx, ny = convert_to_grid(lat, lon)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"좌표 변환 실패: {str(e)}")
 
     params = {
         "serviceKey": WEATHER_API_KEY,
@@ -231,31 +234,52 @@ async def get_weather_caption(lat: float = Query(..., description="위도"),
         "numOfRows": "100",
         "dataType": "JSON",
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
-        "base_time": "0500",
+        "base_time": "0500",  # 필요시 get_base_time()으로 교체
         "nx": str(nx),
         "ny": str(ny),
     }
 
-    async with httpx.AsyncClient() as client_http:
-        response = await client_http.get(VILAGE_FORECAST_URL, params=params)
-    if response.status_code != 200:
-        raise HTTPException(status_code=500, detail="기상청 API 호출 실패")
+    try:
+        async with httpx.AsyncClient() as client_http:
+            response = await client_http.get(VILAGE_FORECAST_URL, params=params)
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"기상청 API 요청 실패: {str(e)}")
 
-    result = response.json()
-    items = result.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+    if response.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"기상청 API 비정상 응답: {response.status_code}")
+
+    try:
+        result = response.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"응답 JSON 파싱 실패: {str(e)}")
+
+    # 응답 정상 여부 확인
+    header = result.get("response", {}).get("header", {})
+    if header.get("resultCode") != "00":
+        msg = header.get("resultMsg", "기상청 API 오류")
+        raise HTTPException(status_code=502, detail=f"기상청 API 오류: {msg}")
+
+    try:
+        items = result["response"]["body"]["items"]["item"]
+    except (KeyError, TypeError):
+        raise HTTPException(status_code=502, detail="기상 정보 데이터 형식이 올바르지 않습니다.")
+
     if not items:
         raise HTTPException(status_code=404, detail="기상 정보가 없습니다.")
 
-    weather_state = parse_weather_response(items)
-    caption_text = weather_captions.get(weather_state, "오늘도 좋은 하루 보내세요!")
-
-    details = parse_weather_details(items)
+    try:
+        weather_state = parse_weather_response(items)
+        caption_text = weather_captions.get(weather_state, "오늘도 좋은 하루 보내세요!")
+        details = parse_weather_details(items)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"기상 정보 파싱 중 오류: {str(e)}")
 
     result_json = {
         "weather": weather_state,
         "caption": caption_text,
         "details": details
     }
+
     return JSONResponse(content=jsonable_encoder(result_json))
 
 # 캡션 저장 API
