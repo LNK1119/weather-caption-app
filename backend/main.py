@@ -248,7 +248,7 @@ async def get_weather_caption(lat: float = Query(..., description="위도"),
         "serviceKey": WEATHER_API_KEY,
         "pageNo": "1",
         "numOfRows": "100",
-        "dataType": "JSON",
+        "dataType": "XML",  # <-- XML로 명시
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
         "base_time": get_base_time(),
         "nx": str(nx),
@@ -260,15 +260,21 @@ async def get_weather_caption(lat: float = Query(..., description="위도"),
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="기상청 API 호출 실패")
 
-    result = response.json()
-    items = result.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+    root = ET.fromstring(response.text)
+    items = root.findall(".//item")
+
     if not items:
         raise HTTPException(status_code=404, detail="기상 정보가 없습니다.")
 
-    weather_state = parse_weather_response(items)
-    caption_text = weather_captions.get(weather_state, "오늘도 좋은 하루 보내세요!")
+    parsed_items = []
+    for item in items:
+        category = item.find("category").text
+        fcst_value = item.find("fcstValue").text
+        parsed_items.append({"category": category, "fcstValue": fcst_value})
 
-    details = parse_weather_details(items)
+    weather_state = parse_weather_response(parsed_items)
+    caption_text = weather_captions.get(weather_state, "오늘도 좋은 하루 보내세요!")
+    details = parse_weather_details(parsed_items)
 
     result_json = {
         "weather": weather_state,
@@ -290,15 +296,15 @@ async def save_caption(data: CaptionSaveRequest):
 
 # 일기 저장 API
 @app.post("/diary/save", summary="일기 저장")
+@app.post("/diary/save", summary="일기 저장")
 async def save_diary(data: DiarySaveRequest):
-    # 1) 위도/경도 받아서 기상청 API 호출 -> 날씨 상태, 캡션 얻기
     nx, ny = convert_to_grid(data.lat, data.lon)
 
     params = {
         "serviceKey": WEATHER_API_KEY,
         "pageNo": "1",
         "numOfRows": "100",
-        "dataType": "JSON",
+        "dataType": "XML",  # <-- XML로 명시
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
         "base_time": get_base_time(),
         "nx": str(nx),
@@ -311,19 +317,24 @@ async def save_diary(data: DiarySaveRequest):
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="기상청 API 호출 실패")
 
-    result = response.json()
-    items = result.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+    root = ET.fromstring(response.text)
+    items = root.findall(".//item")
+
     if not items:
         raise HTTPException(status_code=404, detail="기상 정보가 없습니다.")
 
-    weather_state = parse_weather_response(items)
+    parsed_items = []
+    for item in items:
+        category = item.find("category").text
+        fcst_value = item.find("fcstValue").text
+        parsed_items.append({"category": category, "fcstValue": fcst_value})
+
+    weather_state = parse_weather_response(parsed_items)
     caption_text = weather_captions.get(weather_state, "오늘도 좋은 하루 보내세요!")
 
-    # 2) 날씨와 캡션을 data에 추가
     data.weather = weather_state
     data.caption = caption_text
 
-    # 3) created_at 필드 없으면 현재 시간으로 채우기
     if data.created_at is None:
         data.created_at = datetime.datetime.now(timezone("Asia/Seoul"))
 
