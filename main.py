@@ -136,33 +136,64 @@ def parse_weather_details(items):
         value = item.get("fcstValue")
 
         if category == "T1H":  # 기온
-            temps.append(float(value))
+            try:
+                temps.append(float(value))
+            except (ValueError, TypeError):
+                continue
         elif category == "WSD":  # 풍속
-            winds.append(float(value))
+            try:
+                winds.append(float(value))
+            except (ValueError, TypeError):
+                continue
         elif category == "REH":  # 습도
-            hums.append(int(value))
+            try:
+                hums.append(int(value))
+            except (ValueError, TypeError):
+                continue
         elif category == "SKY":
             skies.append(value)
         elif category == "PTY":
             precs.append(value)
 
-    def avg(values): return round(sum(values) / len(values), 1) if values else None
+    def avg(values):
+        return round(sum(values) / len(values), 1) if values else None
 
-    description = f"기온은 {min(temps)}~{max(temps)}°C입니다. "
-    description += f"풍속은 {min(winds)}~{max(winds)}m/s입니다. "
-    description += f"습도는 평균 {avg(hums)}%입니다. "
+    temp_min = min(temps) if temps else None
+    temp_max = max(temps) if temps else None
+    wind_min = min(winds) if winds else None
+    wind_max = max(winds) if winds else None
+    humidity_avg = avg(hums)
+
+    description_parts = []
+
+    if temp_min is not None and temp_max is not None:
+        description_parts.append(f"기온은 {temp_min}~{temp_max}°C입니다.")
+    else:
+        description_parts.append("기온 정보가 없습니다.")
+
+    if wind_min is not None and wind_max is not None:
+        description_parts.append(f"풍속은 {wind_min}~{wind_max}m/s입니다.")
+    else:
+        description_parts.append("풍속 정보가 없습니다.")
+
+    if humidity_avg is not None:
+        description_parts.append(f"습도는 평균 {humidity_avg}%입니다.")
+    else:
+        description_parts.append("습도 정보가 없습니다.")
+
     if "3" in precs or "2" in precs or "1" in precs:
-        description += "비가 내릴 가능성이 있습니다. "
+        description_parts.append("비가 내릴 가능성이 있습니다.")
     else:
-        description += "강수는 예상되지 않습니다. "
-    if "4" in skies:
-        description += "하늘 상태는 흐림입니다."
-    elif "3" in skies:
-        description += "하늘 상태는 구름 많음입니다."
-    else:
-        description += "하늘 상태는 맑음입니다."
+        description_parts.append("강수는 예상되지 않습니다.")
 
-    return description
+    if "4" in skies:
+        description_parts.append("하늘 상태는 흐림입니다.")
+    elif "3" in skies:
+        description_parts.append("하늘 상태는 구름 많음입니다.")
+    else:
+        description_parts.append("하늘 상태는 맑음입니다.")
+
+    return " ".join(description_parts)
 
 
 @app.get("/caption")
