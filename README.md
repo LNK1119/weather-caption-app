@@ -44,7 +44,7 @@ npm install
 npm start   
 .env에 기상청 API 키 꼭 넣어주세요. (안 넣으면 날씨 안 나옴)
 ***
-## 5. 배포 방법 (Deployment)
+## 5. 배포 방법   
 #### 백엔드
 GitHub Actions → DockerHub → Azure Web App이 pull해서 자동 배포
 
