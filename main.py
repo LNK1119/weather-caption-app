@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from fastapi import FastAPI, Query, UploadFile, File, HTTPException, Body
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
@@ -49,6 +50,7 @@ class CaptionItem(BaseModel):
     caption: str
     created_at: datetime.datetime
 
+
 def insert_caption(item: CaptionItem):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
@@ -59,10 +61,12 @@ def insert_caption(item: CaptionItem):
     except Exception as e:
         print(f"DB 저장 오류: {e}")
         raise HTTPException(status_code=500, detail=f"DB 저장 실패: {e}")
-        
+
+
 # 기상청 API 설정값
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 VILAGE_FORECAST_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+
 
 # 위경도 → 격자 변환 함수 (기상청 API는 격자 좌표 필요)
 def convert_to_grid(lat, lon):
@@ -99,12 +103,13 @@ def convert_to_grid(lat, lon):
     y = int(ro - ra * math.cos(theta) + YO + 0.5)
     return x, y
 
+
 def parse_weather_response(items):
     for item in items:
         category = item.get("category")
         fcstValue = item.get("fcstValue")
         print(f"category={category}, fcstValue={fcstValue}")  # 디버깅용 출력
-        
+
         if category == "PTY":
             if fcstValue == "1":  # 비
                 return "rainy"
@@ -112,7 +117,7 @@ def parse_weather_response(items):
                 return "snowy"
             elif fcstValue == "4":  # 소나기
                 return "shower"
-        
+
         elif category == "SKY":
             if fcstValue == "1":
                 return "sunny"
@@ -120,7 +125,7 @@ def parse_weather_response(items):
                 return "partly_cloudy"
             elif fcstValue == "4":
                 return "cloudy"
-    
+
     return "sunny"  # 기본값
 
 
@@ -159,11 +164,11 @@ def parse_weather_details(items):
 
     return description
 
+
 @app.get("/caption")
 def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny, rainy, etc.)")):
     caption = weather_captions.get(weather.lower(), "날씨에 맞는 캡션을 찾을 수 없어요.")
-    
-    # ✅ 괄호 닫기 수정
+
     item = CaptionItem(
         weather=weather,
         caption=caption,
@@ -222,6 +227,7 @@ def get_caption_history():
         print(f"히스토리 조회 실패: {e}")
         raise HTTPException(status_code=500, detail=f"히스토리 조회 실패: {e}")
 
+
 @app.post("/caption/image")
 def caption_from_image(file: UploadFile = File(...)):
     if collection is None:
@@ -254,92 +260,52 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
     def get_valid_base_time():
         now = datetime.datetime.now(timezone("Asia/Seoul"))
         current_time = int(now.strftime("%H%M"))
-        base_times = ["2300", "2000", "1700", "1400", "1100", "0800", "0500", "0200"]
-        candidates = []
+        base_times = ["2300", "2000", "1700", "1400", "1100", "0800", "0500", "0200", "2300"]
         for bt in base_times:
             if current_time >= int(bt):
-                candidates.append((now.strftime("%Y%m%d"), bt))
-        if not candidates:
-            yesterday = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
-            candidates.append((yesterday, "2300"))
-        return candidates
+                return bt
+        return "2300"
+
+    base_date = datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d")
+    base_time = get_valid_base_time()
+
+    nx, ny = convert_to_grid(lat, lon)
+
+    params = {
+        "serviceKey": WEATHER_API_KEY,
+        "pageNo": "1",
+        "numOfRows": "100",
+        "dataType": "JSON",
+        "base_date": base_date,
+        "base_time": base_time,
+        "nx": str(nx),
+        "ny": str(ny),
+    }
+
+    async with httpx.AsyncClient() as client_http:
+        try:
+            response = await client_http.get(VILAGE_FORECAST_URL, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"기상청 API 요청 실패: {e}")
 
     try:
-        nx, ny = convert_to_grid(lat, lon)
-        base_time_candidates = get_valid_base_time()
+        items = data["response"]["body"]["items"]["item"]
+        weather_type = parse_weather_response(items)
+        caption = weather_captions.get(weather_type, "날씨에 맞는 캡션을 찾을 수 없어요.")
+        detail_desc = parse_weather_details(items)
+        full_caption = f"{caption} {detail_desc}"
 
-        for base_date, base_time in base_time_candidates:
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        VILAGE_FORECAST_URL,
-                        params={
-                            "serviceKey": WEATHER_API_KEY,
-                            "dataType": "XML",
-                            "numOfRows": 1000,
-                            "pageNo": 1,
-                            "base_date": base_date,
-                            "base_time": base_time,
-                            "nx": nx,
-                            "ny": ny
-                        },
-                        timeout=10.0
-                    )
-                response.raise_for_status()
-                data = xmltodict.parse(response.text)
-                response_data = data.get("response")
-                header = response_data.get("header", {})
-                result_code = header.get("resultCode")
-                result_msg = header.get("resultMsg")
+        item = CaptionItem(
+            weather=weather_type,
+            caption=full_caption,
+            created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+        )
+        insert_caption(item)
 
-                if result_code == "00":
-                    body = response_data.get("body", {})
-                    items = body.get("items", {}).get("item")
-                    if items is None:
-                        continue
-                    if isinstance(items, dict):
-                        items = [items]
-
-                    # ������ 가장 가까운 forecast time의 데이터만 추출
-                    latest_time = max(item['fcstTime'] for item in items)
-                    latest_items = [item for item in items if item['fcstTime'] == latest_time]
-
-                    predicted_weather = parse_weather_response(latest_items)
-                    caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-                    description = parse_weather_details(latest_items)
-                    
-                    item = CaptionItem(
-                        weather=predicted_weather,
-                        caption=caption,
-                        created_at=datetime.datetime.now(timezone("Asia/Seoul"))
-                    )
-                    insert_caption(item)
-
-                    return JSONResponse(content=jsonable_encoder({
-                        "caption_item": item,
-                        "description": description
-                    }))
-
-                elif result_msg == "NO_DATA":
-                    print(f"[기상청] NO_DATA: {base_date} {base_time}, 다음 시도 중...")
-                    continue
-                else:
-                    raise HTTPException(status_code=500, detail=f"기상청 API 오류: {result_msg}")
-
-            except httpx.HTTPStatusError as e:
-                print(f"HTTP 오류: {e}")
-                continue
-            except httpx.RequestError as e:
-                print(f"요청 오류: {e}")
-                raise HTTPException(status_code=503, detail="기상청 API 서버에 연결할 수 없습니다.")
-            except Exception as e:
-                print(f"기상 정보 파싱 실패: {e}")
-                continue
-
-        raise HTTPException(status_code=404, detail="기상 정보를 찾을 수 없습니다. (모든 시간 실패)")
-
-    except HTTPException as e:
-        raise e
+        return JSONResponse(content=jsonable_encoder(item))
     except Exception as e:
-        print(f"위치 기반 캡션 생성 실패: {e}")
-        raise HTTPException(status_code=500, detail=f"위치 기반 캡션 생성 실패: {e}")
+        print(f"기상 정보 파싱 실패: {e}")
+        raise HTTPException(status_code=500, detail="기상 정보 파싱 실패")
+
