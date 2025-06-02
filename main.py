@@ -323,7 +323,7 @@ async def get_diary_list():
             result.append({
                 "id": str(d["_id"]),
                 "title": d.get("title"),
-                "content" d.get("content"),
+                "content": d.get("content"),
                 "weather": d.get("weather"),
                 "caption": d.get("caption"),
                 "created_at": d.get("created_at")
