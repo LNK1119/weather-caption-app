@@ -45,13 +45,15 @@ weather_captions = {
 }
 
 
-class CaptionItem(BaseModel):
+class DiaryItem(BaseModel):
+    title: str
+    content: str
     weather: str
-    caption: str
     created_at: datetime.datetime
 
 
-def insert_caption(item: CaptionItem):
+
+def insert_caption(item: DiaryItem):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     item_dict = item.dict()
@@ -164,88 +166,20 @@ def parse_weather_details(items):
     wind_max = max(winds) if winds else None
     humidity_avg = avg(hums)
 
-    description_parts = []
-
-    if temp_min is not None and temp_max is not None:
-        description_parts.append(f"기온은 {temp_min}~{temp_max}°C입니다.")
-    else:
-        description_parts.append("기온 정보가 없습니다.")
-
-    if wind_min is not None and wind_max is not None:
-        description_parts.append(f"풍속은 {wind_min}~{wind_max}m/s입니다.")
-    else:
-        description_parts.append("풍속 정보가 없습니다.")
-
-    if humidity_avg is not None:
-        description_parts.append(f"습도는 평균 {humidity_avg}%입니다.")
-    else:
-        description_parts.append("습도 정보가 없습니다.")
-
-    if "1" in precs:
-        description_parts.append("비가 올 가능성이 있습니다.")
-    elif "2" in precs:
-        description_parts.append("비 또는 눈이 내릴 가능성이 있습니다.")
-    elif "3" in precs:
-        description_parts.append("눈이 올 가능성이 있습니다.")
-    else:
-        description_parts.append("강수는 예상되지 않습니다.")
-    
-
-    if "4" in skies:
-        description_parts.append("하늘 상태는 흐림입니다.")
-    elif "3" in skies:
-        description_parts.append("하늘 상태는 구름 많음입니다.")
-    else:
-        description_parts.append("하늘 상태는 맑음입니다.")
-
-    return " ".join(description_parts)
-
-def parse_weather_details(items):
-    temps, winds, hums, skies, precs = [], [], [], [], []
-    for item in items:
-        category = item.get("category")
-        value = item.get("fcstValue")
-
-        if category == "TMP":  # 기온
-            try:
-                temps.append(float(value))
-            except (ValueError, TypeError):
-                continue
-        elif category == "WSD":  # 풍속
-            try:
-                winds.append(float(value))
-            except (ValueError, TypeError):
-                continue
-        elif category == "REH":  # 습도
-            try:
-                hums.append(int(value))
-            except (ValueError, TypeError):
-                continue
-        elif category == "SKY":
-            skies.append(value)
-        elif category == "PTY":
-            precs.append(value)
-
-    def avg(values):
-        return round(sum(values) / len(values), 1) if values else None
-
     description = {}
 
-    if temps:
-        temp_min, temp_max = min(temps), max(temps)
+    if temp_min is not None and temp_max is not None:
         description["Temperature"] = f"{temp_min}~{temp_max}°C"
     else:
         description["Temperature"] = "기온 정보가 없습니다."
 
-    if winds:
-        wind_min, wind_max = min(winds), max(winds)
-        description["WindSpeed"] = f"{min(winds)}~{max(winds)}m/s"
+    if wind_min is not None and wind_max is not None:
+        description["WindSpeed"] = f"{wind_min}~{wind_max}m/s"
     else:
         description["WindSpeed"] = "풍속 정보가 없습니다."
 
-    if hums:
-        hum_min, hum_max = min(hums), max(hums)
-        description["Humidity"] = f"{min(hums)}~{max(hums)}%"
+    if humidity_avg is not None:
+        description["Humidity"] = f"평균 {humidity_avg}%"
     else:
         description["Humidity"] = "습도 정보가 없습니다."
 
@@ -260,7 +194,7 @@ def parse_weather_details(items):
         description["PrecipitationProbability"] = "강수 예상 없음"
 
     if precs:
-        description["Precipitation"] = "0~1mm"  # 기상청 데이터에 따라 조정 가능
+        description["Precipitation"] = "0~1mm"  # 필요에 따라 조정 가능
     else:
         description["Precipitation"] = "강수량 정보가 없습니다."
 
@@ -275,6 +209,7 @@ def parse_weather_details(items):
         description["SkyCondition"] = "하늘 상태가 없습니다."
 
     return description
+
 
 
 @app.get("/caption")
@@ -302,24 +237,25 @@ class CaptionSaveRequest(BaseModel):
     caption: str
 
 
-@app.post("/caption/save")
-def save_caption(data: CaptionSaveRequest = Body(...)):
-    item = CaptionItem(
+@app.post("/diary/save")
+def save_diary(data: DiarySaveRequest = Body(...)):
+    item = DiaryItem(
+        title=data.title,
+        content=data.content,
         weather=data.weather,
-        caption=data.caption,
         created_at=datetime.datetime.now(timezone("Asia/Seoul"))
     )
     try:
-        insert_caption(item)
+        insert_diary(item)
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"캡션 저장 실패: {e}")
-    return {"message": "캡션 저장 완료", "item": jsonable_encoder(item)}
+        raise HTTPException(status_code=500, detail=f"일기 저장 실패: {e}")
+    return {"message": "일기 저장 완료", "item": jsonable_encoder(item)}
 
 
-@app.get("/caption/history", response_model=List[CaptionItem])
-def get_caption_history():
+@app.get("/diary/history", response_model=List[DiaryItem])
+def get_diary_history():
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     try:
@@ -329,16 +265,33 @@ def get_caption_history():
             created_at = doc.get("created_at")
             if isinstance(created_at, str):
                 created_at = parser.parse(created_at)
-            result.append(CaptionItem(
+            result.append(DiaryItem(
+                title=doc["title"],
+                content=doc["content"],
                 weather=doc["weather"],
-                caption=doc["caption"],
                 created_at=created_at
             ))
         return result
     except Exception as e:
         print(f"히스토리 조회 실패: {e}")
         raise HTTPException(status_code=500, detail=f"히스토리 조회 실패: {e}")
+from fastapi import Path
+from bson import ObjectId
 
+@app.delete("/diary/delete/{diary_id}")
+def delete_diary(diary_id: str = Path(..., description="삭제할 일기의 MongoDB ObjectId")):
+    if collection is None:
+        raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
+    try:
+        obj_id = ObjectId(diary_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="유효하지 않은 ID 형식입니다.")
+    
+    result = collection.delete_one({"_id": obj_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="해당 일기를 찾을 수 없습니다.")
+    
+    return {"message": "일기가 성공적으로 삭제되었습니다."}
 
 @app.get("/caption/location")
 async def caption_from_location(lat: float = Query(...), lon: float = Query(...)):
@@ -398,12 +351,6 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
                     description = parse_weather_details(items)
                     
-                    item = CaptionItem(
-                        weather=predicted_weather,
-                        caption=caption,
-                        created_at=datetime.datetime.now(timezone("Asia/Seoul"))
-                    )
-                    insert_caption(item)
 
                     return JSONResponse(content=jsonable_encoder({
                         "caption_item": item,
