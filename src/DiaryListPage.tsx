@@ -17,7 +17,7 @@ export function DiaryListPage({
 
   useEffect(() => {
     loadDiaries();
-  }, []);
+  }, []);  
 
   async function loadDiaries() {
     try {

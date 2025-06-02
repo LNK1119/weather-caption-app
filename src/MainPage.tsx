@@ -33,7 +33,7 @@ export function MainPage({ onGoDiaryList }: { onGoDiaryList: () => void }) {
       {weatherData ? (
         <div style={{ textAlign: "center", fontSize: 18, color: "#333" }}>
           <p>날씨: <strong>{weatherData.weather}</strong></p>
-          <p>오늘 날씨의 한마디:</p>
+          <p>오늘 날씨의 한마디 :</p>
           <p style={{ fontStyle: "italic", color: "#0077cc", marginBottom: 20 }}>{weatherData.caption}</p>
 
           <div style={{
