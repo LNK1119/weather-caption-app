@@ -153,7 +153,11 @@ class CaptionSaveRequest(BaseModel):
 
 @app.post("/caption/save")
 def save_caption(data: CaptionSaveRequest = Body(...)):
-    item = CaptionItem(weather=data.weather, caption=data.caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+    item = CaptionItem(
+        weather=data.weather,
+        caption=data.caption,
+        created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+    )
     try:
         insert_caption(item)
     except HTTPException as e:
@@ -161,6 +165,7 @@ def save_caption(data: CaptionSaveRequest = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"캡션 저장 실패: {e}")
     return {"message": "캡션 저장 완료", "item": jsonable_encoder(item)}
+
 
 @app.get("/caption/history", response_model=List[CaptionItem])
 def get_caption_history():
@@ -194,7 +199,11 @@ def caption_from_image(file: UploadFile = File(...)):
 
         predicted_weather = random.choice(list(weather_captions.keys()))
         caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-        item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+        item = CaptionItem(
+            weather=predicted_weather,
+            caption=caption,
+            created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+        )
         insert_caption(item)
 
         return JSONResponse(content=jsonable_encoder(item))
@@ -202,21 +211,20 @@ def caption_from_image(file: UploadFile = File(...)):
         print(f"이미지 캡션 생성 실패: {e}")
         raise HTTPException(status_code=400, detail="유효한 이미지 파일을 업로드해주세요.")
 
+
 @app.get("/caption/location")
 async def caption_from_location(lat: float = Query(...), lon: float = Query(...)):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     
     def get_valid_base_time():
-        """현재 시간에 기반해 사용할 수 있는 base_time 리스트를 반환 (가장 최신부터)"""
-        now = datetime.datetime.now(timezone("Asia/Seoul")
+        now = datetime.datetime.now(timezone("Asia/Seoul"))  # ✅ 괄호 닫음
         current_time = int(now.strftime("%H%M"))
         base_times = ["2300", "2000", "1700", "1400", "1100", "0800", "0500", "0200"]
         candidates = []
         for bt in base_times:
             if current_time >= int(bt):
                 candidates.append((now.strftime("%Y%m%d"), bt))
-        # 자정 이전이면 전날 base_date도 추가
         if not candidates:
             yesterday = (now - datetime.timedelta(days=1)).strftime("%Y%m%d")
             candidates.append((yesterday, "2300"))
@@ -259,7 +267,11 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
                         items = [items]
                     predicted_weather = parse_weather_response(items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-                    item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+                    item = CaptionItem(
+                        weather=predicted_weather,
+                        caption=caption,
+                        created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+                    )
                     insert_caption(item)
                     return JSONResponse(content=jsonable_encoder(item))
 
@@ -271,13 +283,13 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
 
             except httpx.HTTPStatusError as e:
                 print(f"HTTP 오류: {e}")
-                continue  # 다음 base_time 시도
+                continue
             except httpx.RequestError as e:
                 print(f"요청 오류: {e}")
                 raise HTTPException(status_code=503, detail="기상청 API 서버에 연결할 수 없습니다.")
             except Exception as e:
                 print(f"기상 정보 파싱 실패: {e}")
-                continue  # 다음 시도
+                continue
         
         raise HTTPException(status_code=404, detail="기상 정보를 찾을 수 없습니다. (모든 시간 실패)")
 
