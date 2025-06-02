@@ -218,7 +218,18 @@ def parse_weather_details(items):
         description["SkyCondition"] = "정보 없음"
 
     return description
+def get_base_time():
+    # 기상청 단기예보 기준 시간 목록 (예: 0200, 0500, 0800, 1100, 1400, 1700, 2000, 2300)
+    base_times = ["0200", "0500", "0800", "1100", "1400", "1700", "2000", "2300"]
 
+    now = datetime.datetime.now(timezone("Asia/Seoul"))
+    now_hm = now.strftime("%H%M")
+
+    # 현재 시각보다 작거나 같은 가장 최신 base_time 선택
+    valid_times = [bt for bt in base_times if bt <= now_hm]
+    if not valid_times:
+        return "2300"  # 00시 이전일 때 전날 23시 기준 시간 사용
+    return valid_times[-1]
 # 위도/경도 기반으로 기상청 API 호출하여 날씨 캡션 생성
 @app.get("/weather/caption", summary="위치 기반 날씨 캡션 생성")
 async def get_weather_caption(lat: float = Query(..., description="위도"),
@@ -234,7 +245,7 @@ async def get_weather_caption(lat: float = Query(..., description="위도"),
         "numOfRows": "100",
         "dataType": "JSON",
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
-        "base_time": "0500",  # 필요시 get_base_time()으로 교체
+        "base_time": get_base_time(), 
         "nx": str(nx),
         "ny": str(ny),
     }
@@ -305,7 +316,7 @@ async def save_diary(data: DiarySaveRequest):
         "numOfRows": "100",
         "dataType": "JSON",
         "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
-        "base_time": "0500",
+        "base_time": get_base_time(),
         "nx": str(nx),
         "ny": str(ny),
     }
