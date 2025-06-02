@@ -229,7 +229,7 @@ def get_caption_history():
 
 
 @app.get("/caption/location")
-async def caption_latest_from_location(lat: float = Query(...), lon: float = Query(...)):
+async def caption_from_location(lat: float = Query(...), lon: float = Query(...)):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
 
@@ -281,30 +281,21 @@ async def caption_latest_from_location(lat: float = Query(...), lon: float = Que
                         continue
                     if isinstance(items, dict):
                         items = [items]
-                
-                    fcst_times = [item.get("fcstTime") for item in items if item.get("fcstTime")]
-                    if not fcst_times:
-                        print("[기상청] fcstTime 데이터가 없습니다.")
-                        continue
-                
-                    latest_time = max(fcst_times)
-                    latest_items = [item for item in items if item.get("fcstTime") == latest_time]
-                
-                    predicted_weather = parse_weather_response(latest_items)
+
+                    predicted_weather = parse_weather_response(items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-                    description = parse_weather_details(latest_items)
-                
+                    description = parse_weather_details(items)
+                    
                     item = CaptionItem(
                         weather=predicted_weather,
                         caption=caption,
                         created_at=datetime.datetime.now(timezone("Asia/Seoul"))
                     )
                     insert_caption(item)
-                
+
                     return JSONResponse(content=jsonable_encoder({
                         "caption_item": item,
-                        "description": description,
-                        "fcstTime": latest_time
+                        "description": description
                     }))
 
                 elif result_msg == "NO_DATA":
