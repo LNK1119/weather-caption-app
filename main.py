@@ -19,17 +19,20 @@ load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME = os.getenv("DB_NAME")
-COLLECTION_NAME = os.getenv("COLLECTION_NAME")
+COLLECTION_NAME_1 = os.getenv("COLLECTION_NAME_1")
+COLLECTION_NAME_2 = os.getenv("COLLECTION_NAME_2")
 
 # MongoDB 연결 (예외 처리 포함)
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     client.server_info()  # 연결 확인
     db = client[DB_NAME]
-    collection = db[COLLECTION_NAME]
+    collection1 = db[COLLECTION_NAME_1]
+    collection2 = db[COLLECTION_NAME_2]
 except errors.ServerSelectionTimeoutError as e:
     print(f"MongoDB 연결 실패: {e}")
-    collection = None  # DB 연결 실패 시 None 처리
+    collection1 = None  # DB 연결 실패 시 None 처리
+    collection2 = None  # DB 연결 실패 시 None 처리
 
 app = FastAPI()
 
@@ -61,20 +64,20 @@ class CaptionSaveRequest(BaseModel):
 
 # 캡션 저장 함수 (MongoDB에 캡션 저장)
 def insert_caption(item: CaptionItem):
-    if collection is None:
+    if collection1 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     item_dict = item.dict()
     # created_at 은 datetime -> isoformat 문자열로 변환
     item_dict["created_at"] = item_dict["created_at"].isoformat()
     try:
-        collection.insert_one(item_dict)
+        collection1.insert_one(item_dict)
     except Exception as e:
         print(f"캡션 DB 저장 오류: {e}")
         raise HTTPException(status_code=500, detail=f"캡션 DB 저장 실패: {e}")
 
 # 일기 저장 함수
 def insert_diary(item: DiarySaveRequest):
-    if collection is None:
+    if collection2 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     item_dict = item.dict()
     # created_at datetime -> iso 문자열
@@ -83,7 +86,7 @@ def insert_diary(item: DiarySaveRequest):
     else:
         item_dict["created_at"] = item_dict["created_at"].isoformat()
     try:
-        collection.insert_one(item_dict)
+        collection2.insert_one(item_dict)
     except Exception as e:
         print(f"DB 저장 오류: {e}")
         raise HTTPException(status_code=500, detail=f"DB 저장 실패: {e}")
@@ -274,10 +277,10 @@ async def save_diary(data: DiarySaveRequest):
 # 일기 목록 조회 API
 @app.get("/diary/list", summary="일기 목록 조회")
 async def get_diary_list():
-    if collection is None:
+    if collection2 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     try:
-        docs = list(collection.find({}, {"_id": 1, "title": 1, "weather": 1, "created_at": 1}))
+        docs = list(collection2.find({}, {"_id": 1, "title": 1, "weather": 1, "created_at": 1}))
         result = []
         for d in docs:
             result.append({
@@ -293,14 +296,14 @@ async def get_diary_list():
 # 특정 일기 삭제 API
 @app.delete("/diary/delete/{diary_id}", summary="일기 삭제")
 async def delete_diary(diary_id: str = Path(..., description="삭제할 일기의 ObjectId 문자열")):
-    if collection is None:
+    if collection2 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     try:
         oid = ObjectId(diary_id)
     except Exception:
         raise HTTPException(status_code=400, detail="유효하지 않은 ID 형식입니다.")
 
-    result = collection.delete_one({"_id": oid})
+    result = collection2.delete_one({"_id": oid})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="해당 ID의 일기를 찾을 수 없습니다.")
     return {"message": "일기가 삭제되었습니다."}
