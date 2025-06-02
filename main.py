@@ -13,6 +13,7 @@ from pymongo import MongoClient, errors
 from dateutil import parser
 import httpx
 import xmltodict
+from pytz import timezone
 
 # .env 파일 로드
 load_dotenv()
@@ -127,7 +128,7 @@ def parse_weather_response(items):
 @app.get("/caption")
 def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny, rainy, etc.)")):
     caption = weather_captions.get(weather.lower(), "날씨에 맞는 캡션을 찾을 수 없어요.")
-    item = CaptionItem(weather=weather, caption=caption, created_at=datetime.datetime.now())
+    item = CaptionItem(weather=weather, caption=caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
     try:
         insert_caption(item)
     except HTTPException as e:
@@ -142,7 +143,7 @@ class CaptionSaveRequest(BaseModel):
 
 @app.post("/caption/save")
 def save_caption(data: CaptionSaveRequest = Body(...)):
-    item = CaptionItem(weather=data.weather, caption=data.caption, created_at=datetime.datetime.now())
+    item = CaptionItem(weather=data.weather, caption=data.caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
     try:
         insert_caption(item)
     except HTTPException as e:
@@ -183,7 +184,7 @@ def caption_from_image(file: UploadFile = File(...)):
 
         predicted_weather = random.choice(list(weather_captions.keys()))
         caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-        item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now())
+        item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
         insert_caption(item)
 
         return JSONResponse(content=jsonable_encoder(item))
@@ -198,7 +199,7 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
     
     def get_valid_base_time():
         """현재 시간에 기반해 사용할 수 있는 base_time 리스트를 반환 (가장 최신부터)"""
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(timezone("Asia/Seoul")
         current_time = int(now.strftime("%H%M"))
         base_times = ["2300", "2000", "1700", "1400", "1100", "0800", "0500", "0200"]
         candidates = []
@@ -248,7 +249,7 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
                         items = [items]
                     predicted_weather = parse_weather_response(items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-                    item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now())
+                    item = CaptionItem(weather=predicted_weather, caption=caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
                     insert_caption(item)
                     return JSONResponse(content=jsonable_encoder(item))
 
