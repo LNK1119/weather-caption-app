@@ -317,12 +317,13 @@ async def get_diary_list():
     if collection2 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     try:
-        docs = list(collection2.find({}, {"_id": 1, "title": 1, "weather": 1, "caption": 1, "created_at": 1}))
+        docs = list(collection2.find({}, {"_id": 1, "title": 1, "content": 1,"weather": 1, "caption": 1, "created_at": 1}))
         result = []
         for d in docs:
             result.append({
                 "id": str(d["_id"]),
                 "title": d.get("title"),
+                "content" d.get("content"),
                 "weather": d.get("weather"),
                 "caption": d.get("caption"),
                 "created_at": d.get("created_at")
