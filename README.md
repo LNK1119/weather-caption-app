@@ -16,7 +16,7 @@ chat gpt의 도움을 받았습니다.
 백엔드: FastAPI + Python   
 프론트엔드: React (CRA로 시작, 도커는 안 씀)   
 DB: MongoDB (Azure Cosmos DB 사용)   
-날씨 API: 기상청 단기예보 API (XML → JSON 파싱 직접 구현)   
+날씨 API: 기상청 단기예보 API 
 배포: Azure Web App + GitHub Actions + Docker   
 기타: GitHub Actions로 CI/CD 자동화 해놨습니다   
 
