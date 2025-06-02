@@ -125,42 +125,39 @@ def parse_weather_response(items):
 
 
 def parse_weather_details(items):
-    descriptions = []
+    temps, winds, hums, skies, precs = [], [], [], [], []
     for item in items:
         category = item.get("category")
         value = item.get("fcstValue")
-        text = ""
 
-        if category == "TMP":
-            text = f"기온은 {value}°C입니다."
+        if category == "T1H":  # 기온
+            temps.append(float(value))
+        elif category == "WSD":  # 풍속
+            winds.append(float(value))
+        elif category == "REH":  # 습도
+            hums.append(int(value))
         elif category == "SKY":
-            sky_map = {"1": "맑음", "3": "구름 많음", "4": "흐림"}
-            text = f"하늘 상태는 '{sky_map.get(value, '알 수 없음')}'입니다."
+            skies.append(value)
         elif category == "PTY":
-            pty_map = {
-                "0": "강수 없음",
-                "1": "비",
-                "2": "비/눈",
-                "3": "눈",
-                "4": "소나기"
-            }
-            text = f"강수 형태는 '{pty_map.get(value, '알 수 없음')}'입니다."
-        elif category == "WSD":
-            text = f"풍속은 {value}m/s입니다."
-        elif category == "VEC":
-            text = f"풍향은 {value}도입니다."
-        elif category == "UUU":
-            text = f"동서바람 성분은 {value}입니다."
-        elif category == "VVV":
-            text = f"남북바람 성분은 {value}입니다."
-        elif category == "TMX":
-            text = f"최고기온은 {value}°C입니다."
-        elif category == "TMN":
-            text = f"최저기온은 {value}°C입니다."
-        else:
-            text = f"{category}: {value}"
-        descriptions.append(text)
-    return " ".join(descriptions)
+            precs.append(value)
+
+    def avg(values): return round(sum(values) / len(values), 1) if values else None
+
+    description = f"기온은 {min(temps)}~{max(temps)}°C입니다. "
+    description += f"풍속은 {min(winds)}~{max(winds)}m/s입니다. "
+    description += f"습도는 평균 {avg(hums)}%입니다. "
+    if "3" in precs or "2" in precs or "1" in precs:
+        description += "비가 내릴 가능성이 있습니다. "
+    else:
+        description += "강수는 예상되지 않습니다. "
+    if "4" in skies:
+        description += "하늘 상태는 흐림입니다."
+    elif "3" in skies:
+        description += "하늘 상태는 구름 많음입니다."
+    else:
+        description += "하늘 상태는 맑음입니다."
+
+    return description
 
 @app.get("/caption")
 def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny, rainy, etc.)")):
@@ -303,9 +300,13 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
                     if isinstance(items, dict):
                         items = [items]
 
-                    predicted_weather = parse_weather_response(items)
+                    # ������ 가장 가까운 forecast time의 데이터만 추출
+                    latest_time = max(item['fcstTime'] for item in items)
+                    latest_items = [item for item in items if item['fcstTime'] == latest_time]
+
+                    predicted_weather = parse_weather_response(latest_items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
-                    description = parse_weather_details(items)
+                    description = parse_weather_details(latest_items)
                     
                     item = CaptionItem(
                         weather=predicted_weather,
