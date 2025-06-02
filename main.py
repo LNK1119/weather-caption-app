@@ -123,7 +123,44 @@ def parse_weather_response(items):
     
     return "sunny"  # 기본값
 
-      
+
+def parse_weather_details(items):
+    descriptions = []
+    for item in items:
+        category = item.get("category")
+        value = item.get("fcstValue")
+        text = ""
+
+        if category == "TMP":
+            text = f"기온은 {value}°C입니다."
+        elif category == "SKY":
+            sky_map = {"1": "맑음", "3": "구름 많음", "4": "흐림"}
+            text = f"하늘 상태는 '{sky_map.get(value, '알 수 없음')}'입니다."
+        elif category == "PTY":
+            pty_map = {
+                "0": "강수 없음",
+                "1": "비",
+                "2": "비/눈",
+                "3": "눈",
+                "4": "소나기"
+            }
+            text = f"강수 형태는 '{pty_map.get(value, '알 수 없음')}'입니다."
+        elif category == "WSD":
+            text = f"풍속은 {value}m/s입니다."
+        elif category == "VEC":
+            text = f"풍향은 {value}도입니다."
+        elif category == "UUU":
+            text = f"동서바람 성분은 {value}입니다."
+        elif category == "VVV":
+            text = f"남북바람 성분은 {value}입니다."
+        elif category == "TMX":
+            text = f"최고기온은 {value}°C입니다."
+        elif category == "TMN":
+            text = f"최저기온은 {value}°C입니다."
+        else:
+            text = f"{category}: {value}"
+        descriptions.append(text)
+    return " ".join(descriptions)
 
 @app.get("/caption")
 def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny, rainy, etc.)")):
@@ -216,9 +253,9 @@ def caption_from_image(file: UploadFile = File(...)):
 async def caption_from_location(lat: float = Query(...), lon: float = Query(...)):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
-    
+
     def get_valid_base_time():
-        now = datetime.datetime.now(timezone("Asia/Seoul"))  # ✅ 괄호 닫음
+        now = datetime.datetime.now(timezone("Asia/Seoul"))
         current_time = int(now.strftime("%H%M"))
         base_times = ["2300", "2000", "1700", "1400", "1100", "0800", "0500", "0200"]
         candidates = []
@@ -265,15 +302,22 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
                         continue
                     if isinstance(items, dict):
                         items = [items]
+
                     predicted_weather = parse_weather_response(items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
+                    description = parse_weather_details(items)
+                    
                     item = CaptionItem(
                         weather=predicted_weather,
                         caption=caption,
                         created_at=datetime.datetime.now(timezone("Asia/Seoul"))
                     )
                     insert_caption(item)
-                    return JSONResponse(content=jsonable_encoder(item))
+
+                    return JSONResponse(content=jsonable_encoder({
+                        "caption_item": item,
+                        "description": description
+                    }))
 
                 elif result_msg == "NO_DATA":
                     print(f"[기상청] NO_DATA: {base_date} {base_time}, 다음 시도 중...")
@@ -290,7 +334,7 @@ async def caption_from_location(lat: float = Query(...), lon: float = Query(...)
             except Exception as e:
                 print(f"기상 정보 파싱 실패: {e}")
                 continue
-        
+
         raise HTTPException(status_code=404, detail="기상 정보를 찾을 수 없습니다. (모든 시간 실패)")
 
     except HTTPException as e:
