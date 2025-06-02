@@ -55,8 +55,12 @@ class CaptionItem(BaseModel):
 class DiarySaveRequest(BaseModel):
     title: str
     content: str
-    weather: str
-    created_at: datetime.datetime = None  # 저장 시 채워짐
+    lat: float  # 위도 추가
+    lon: float  # 경도 추가
+    weather: str = None  # API 내에서 채울 예정
+    caption: str = None  # API 내에서 채울 예정
+    created_at: datetime.datetime = None
+
 
 class CaptionSaveRequest(BaseModel):
     weather: str
