@@ -232,19 +232,22 @@ def parse_weather_details(items):
     description = {}
 
     if temps:
+        temp_min, temp_max = min(temps), max(temps)
         description["Temperature"] = f"{temp_min}~{temp_max}°C"
     else:
         description["Temperature"] = "기온 정보가 없습니다."
 
     if winds:
+        wind_min, wind_max = min(winds), max(winds)
         description["WindSpeed"] = f"{min(winds)}~{max(winds)}m/s"
     else:
         description["WindSpeed"] = "풍속 정보가 없습니다."
 
     if hums:
-        description["Humidity""] = f"{min(hums)}~{max(hums)}%"
+        hum_min, hum_max = min(hums), max(hums)
+        description["Humidity"] = f"{min(hums)}~{max(hums)}%"
     else:
-        description["Humidity""] = "습도 정보가 없습니다."
+        description["Humidity"] = "습도 정보가 없습니다."
 
     # 강수 정보
     if "1" in precs:
