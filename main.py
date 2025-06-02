@@ -241,7 +241,7 @@ class CaptionSaveRequest(BaseModel):
 
 @app.post("/diary/save")
 def save_diary(data: DiarySaveRequest = Body(...)):
-    item = DiaryItem(
+    item = DiarySaveRequest(
         title=data.title,
         content=data.content,
         weather=data.weather,
@@ -256,7 +256,7 @@ def save_diary(data: DiarySaveRequest = Body(...)):
     return {"message": "일기 저장 완료", "item": jsonable_encoder(item)}
 
 
-@app.get("/diary/history", response_model=List[DiaryItem])
+@app.get("/diary/history", response_model=List[DiarySaveRequest])
 def get_diary_history():
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
@@ -267,7 +267,7 @@ def get_diary_history():
             created_at = doc.get("created_at")
             if isinstance(created_at, str):
                 created_at = parser.parse(created_at)
-            result.append(DiaryItem(
+            result.append(DiarySaveRequest(
                 title=doc["title"],
                 content=doc["content"],
                 weather=doc["weather"],
