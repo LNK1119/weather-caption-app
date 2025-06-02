@@ -80,7 +80,6 @@ def insert_diary(item: DiarySaveRequest):
     if collection2 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     item_dict = item.dict()
-    # created_at datetime -> iso 문자열
     if item_dict.get("created_at") is None:
         item_dict["created_at"] = datetime.datetime.now(timezone("Asia/Seoul")).isoformat()
     else:
@@ -90,6 +89,7 @@ def insert_diary(item: DiarySaveRequest):
     except Exception as e:
         print(f"DB 저장 오류: {e}")
         raise HTTPException(status_code=500, detail=f"DB 저장 실패: {e}")
+
 
 # 기상청 API 설정
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -268,11 +268,44 @@ async def save_caption(data: CaptionSaveRequest):
 # 일기 저장 API
 @app.post("/diary/save", summary="일기 저장")
 async def save_diary(data: DiarySaveRequest):
-    # created_at 필드 없으면 현재 시간으로 채우기
+    # 1) 위도/경도 받아서 기상청 API 호출 -> 날씨 상태, 캡션 얻기
+    nx, ny = convert_to_grid(data.lat, data.lon)
+
+    params = {
+        "serviceKey": WEATHER_API_KEY,
+        "pageNo": "1",
+        "numOfRows": "100",
+        "dataType": "JSON",
+        "base_date": datetime.datetime.now(timezone("Asia/Seoul")).strftime("%Y%m%d"),
+        "base_time": "0500",
+        "nx": str(nx),
+        "ny": str(ny),
+    }
+
+    async with httpx.AsyncClient() as client_http:
+        response = await client_http.get(VILAGE_FORECAST_URL, params=params)
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail="기상청 API 호출 실패")
+
+    result = response.json()
+    items = result.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+    if not items:
+        raise HTTPException(status_code=404, detail="기상 정보가 없습니다.")
+
+    weather_state = parse_weather_response(items)
+    caption_text = weather_captions.get(weather_state, "오늘도 좋은 하루 보내세요!")
+
+    # 2) 날씨와 캡션을 data에 추가
+    data.weather = weather_state
+    data.caption = caption_text
+
+    # 3) created_at 필드 없으면 현재 시간으로 채우기
     if data.created_at is None:
         data.created_at = datetime.datetime.now(timezone("Asia/Seoul"))
+
     insert_diary(data)
-    return {"message": "일기가 저장되었습니다."}
+    return {"message": "일기가 저장되었습니다.", "weather": data.weather, "caption": data.caption}
 
 # 일기 목록 조회 API
 @app.get("/diary/list", summary="일기 목록 조회")
@@ -280,18 +313,20 @@ async def get_diary_list():
     if collection2 is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     try:
-        docs = list(collection2.find({}, {"_id": 1, "title": 1, "weather": 1, "created_at": 1}))
+        docs = list(collection2.find({}, {"_id": 1, "title": 1, "weather": 1, "caption": 1, "created_at": 1}))
         result = []
         for d in docs:
             result.append({
                 "id": str(d["_id"]),
                 "title": d.get("title"),
                 "weather": d.get("weather"),
+                "caption": d.get("caption"),
                 "created_at": d.get("created_at")
             })
         return {"diaries": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"일기 조회 실패: {e}")
+
 
 # 특정 일기 삭제 API
 @app.delete("/diary/delete/{diary_id}", summary="일기 삭제")
