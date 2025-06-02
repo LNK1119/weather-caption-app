@@ -181,10 +181,15 @@ def parse_weather_details(items):
     else:
         description_parts.append("습도 정보가 없습니다.")
 
-    if "3" in precs or "2" in precs or "1" in precs:
-        description_parts.append("비가 내릴 가능성이 있습니다.")
+    if "1" in precs:
+        description_parts.append("비가 올 가능성이 있습니다.")
+    elif "2" in precs:
+        description_parts.append("비 또는 눈이 내릴 가능성이 있습니다.")
+    elif "3" in precs:
+        description_parts.append("눈이 올 가능성이 있습니다.")
     else:
         description_parts.append("강수는 예상되지 않습니다.")
+    
 
     if "4" in skies:
         description_parts.append("하늘 상태는 흐림입니다.")
@@ -194,6 +199,79 @@ def parse_weather_details(items):
         description_parts.append("하늘 상태는 맑음입니다.")
 
     return " ".join(description_parts)
+
+def parse_weather_details(items):
+    temps, winds, hums, skies, precs = [], [], [], [], []
+    for item in items:
+        category = item.get("category")
+        value = item.get("fcstValue")
+
+        if category == "TMP":  # 기온
+            try:
+                temps.append(float(value))
+            except (ValueError, TypeError):
+                continue
+        elif category == "WSD":  # 풍속
+            try:
+                winds.append(float(value))
+            except (ValueError, TypeError):
+                continue
+        elif category == "REH":  # 습도
+            try:
+                hums.append(int(value))
+            except (ValueError, TypeError):
+                continue
+        elif category == "SKY":
+            skies.append(value)
+        elif category == "PTY":
+            precs.append(value)
+
+    def avg(values):
+        return round(sum(values) / len(values), 1) if values else None
+
+    description = {}
+
+    if temps:
+        description["Temperature"] = f"{temp_min}~{temp_max}°C"
+    else:
+        description["Temperature"] = "기온 정보가 없습니다."
+
+    if winds:
+        description["WindSpeed"] = f"{min(winds)}~{max(winds)}m/s"
+    else:
+        description["WindSpeed"] = "풍속 정보가 없습니다."
+
+    if hums:
+        description["Humidity""] = f"{min(hums)}~{max(hums)}%"
+    else:
+        description["Humidity""] = "습도 정보가 없습니다."
+
+    # 강수 정보
+    if "1" in precs:
+        description["PrecipitationProbability"] = "비가 올 가능성 있음"
+    elif "2" in precs:
+        description["PrecipitationProbability"] = "비 또는 눈이 내릴 가능성 있음"
+    elif "3" in precs:
+        description["PrecipitationProbability"] = "눈이 올 가능성 있음"
+    else:
+        description["PrecipitationProbability"] = "강수 예상 없음"
+
+    if precs:
+        description["Precipitation"] = "0~1mm"  # 기상청 데이터에 따라 조정 가능
+    else:
+        description["Precipitation"] = "강수량 정보가 없습니다."
+
+    # 하늘 상태
+    if "4" in skies:
+        description["SkyCondition"] = "흐림"
+    elif "3" in skies:
+        description["SkyCondition"] = "구름 많음"
+    elif "1" in skies:
+        description["SkyCondition"] = "맑음"
+    else:
+        description["SkyCondition"] = "하늘 상태가 없습니다."
+
+    return description
 
 
 @app.get("/caption")
