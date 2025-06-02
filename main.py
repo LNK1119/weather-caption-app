@@ -55,7 +55,7 @@ class DiarySaveRequest(BaseModel):
     content: str
     weather: str
 
-def insert_diary(item: DiaryItem):
+def insert_diary(item: DiarySaveRequest):
     if collection is None:
         raise HTTPException(status_code=500, detail="DB 연결이 되어 있지 않습니다.")
     item_dict = item.dict()
