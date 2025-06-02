@@ -21,7 +21,7 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/weather-caption-app:latest .
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/weather-caption-app:latest -f backend/Dockerfile backend
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/weather-caption-app:latest
 
       - name: Azure Login
