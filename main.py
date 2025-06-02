@@ -281,23 +281,26 @@ async def caption_latest_from_location(lat: float = Query(...), lon: float = Que
                         continue
                     if isinstance(items, dict):
                         items = [items]
-
-                    # 최신 fcstTime 값 찾기
-                    latest_time = max(item.get("fcstTime", "0000") for item in items)
-                    # 최신 fcstTime 데이터만 필터링
+                
+                    fcst_times = [item.get("fcstTime") for item in items if item.get("fcstTime")]
+                    if not fcst_times:
+                        print("[기상청] fcstTime 데이터가 없습니다.")
+                        continue
+                
+                    latest_time = max(fcst_times)
                     latest_items = [item for item in items if item.get("fcstTime") == latest_time]
-
+                
                     predicted_weather = parse_weather_response(latest_items)
                     caption = weather_captions.get(predicted_weather, "날씨에 맞는 캡션을 찾을 수 없어요.")
                     description = parse_weather_details(latest_items)
-
+                
                     item = CaptionItem(
                         weather=predicted_weather,
                         caption=caption,
                         created_at=datetime.datetime.now(timezone("Asia/Seoul"))
                     )
                     insert_caption(item)
-
+                
                     return JSONResponse(content=jsonable_encoder({
                         "caption_item": item,
                         "description": description,
