@@ -135,18 +135,23 @@ def convert_to_grid(lat, lon):
     return x, y
     
 def get_base_time():
-    """
-    현재 시간 기준 가장 가까운 기상청 base_time을 반환
-    """
     now = datetime.datetime.now(timezone("Asia/Seoul"))
-    hour = now.hour
+    base_times = ["0200", "0500", "0800", "1100", "1400", "1700", "2000", "2300"]
 
-    # base_time 목록
-    base_times = [2, 5, 8, 11, 14, 17, 20, 23]
-    closest = max([bt for bt in base_times if bt <= hour], default=23)
+    # 현재 시각보다 이전의 base_time을 찾기
+    for bt in reversed(base_times):
+        bt_hour = int(bt[:2])
+        bt_min = int(bt[2:])
+        if now.hour > bt_hour or (now.hour == bt_hour and now.minute >= bt_min):
+            base_time = bt
+            break
+    else:
+        # 이른 새벽의 경우 전날 2300으로 설정
+        base_time = "2300"
+        now -= datetime.timedelta(days=1)
 
-    return f"{closest:02}00"
-
+    base_date = now.strftime("%Y%m%d")
+    return base_date, base_time
 
 # 기상청 API에서 받아온 데이터로 날씨 상태를 파싱하는 함수
 def parse_weather_response(items):
