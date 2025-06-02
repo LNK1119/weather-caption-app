@@ -128,18 +128,28 @@ def parse_weather_response(items):
 @app.get("/caption")
 def generate_caption(weather: str = Query(..., description="현재 날씨 (sunny, rainy, etc.)")):
     caption = weather_captions.get(weather.lower(), "날씨에 맞는 캡션을 찾을 수 없어요.")
-    item = CaptionItem(weather=weather, caption=caption, created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+    
+    # ✅ 괄호 닫기 수정
+    item = CaptionItem(
+        weather=weather,
+        caption=caption,
+        created_at=datetime.datetime.now(timezone("Asia/Seoul"))
+    )
+
     try:
         insert_caption(item)
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"캡션 생성 실패: {e}")
+
     return JSONResponse(content=jsonable_encoder(item))
+
 
 class CaptionSaveRequest(BaseModel):
     weather: str
     caption: str
+
 
 @app.post("/caption/save")
 def save_caption(data: CaptionSaveRequest = Body(...)):
