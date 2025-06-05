@@ -38,14 +38,14 @@ DB: MongoDB (Azure Cosmos DB 사용)
 git clone https://github.com/LNK1119/weather-caption-app.git   
 cd weather-caption-app/backend  
 
-env 파일에 
-MONGO_URI=몽고DB_접속_URI
-DB_NAME=몽고DB 이름
-COLLECTION_NAME_1=captions
-COLLECTION_NAME_2=diaries
-WEATHER_API_KEY=기상청_API_키
+env 파일에    
+MONGO_URI=몽고DB_접속_URI   
+DB_NAME=몽고DB 이름   
+COLLECTION_NAME_1=captions   
+COLLECTION_NAME_2=diaries   
+WEATHER_API_KEY=기상청_API_키   
 
-docker build -t weather-caption-backend .
+docker build -t weather-caption-backend .   
 docker run -p 8000:8000 --env-file .env weather-caption-backend
 
 #### 프론트엔드 실행 (Docker 미사용)   
